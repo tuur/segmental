@@ -4,13 +4,14 @@ import subprocess
 import sys
 import os
 import shutil
+import math
 
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Given a text file, and a prob-threshold trains a bi-directional RNNLM, and segments the text according to those places where the threshold is reached.')
     parser.add_argument('text', metavar='text', type=str,
-                   help='The input text')
+                   help='The input text')
     parser.add_argument('-threshold', metavar='-threshold', type=float,default = 0.1,
                    help='The prob threshold (default=0.1)')
     parser.add_argument('-rnnlm', metavar='rnnlm', type=str, default='./rnnlm',
@@ -21,6 +22,8 @@ if __name__ == '__main__':
                    help='Clean tmp folder, containing intermediate steps: 1 (default), OR 0)')
     parser.add_argument('-fast', metavar='fast', type=int, default=1,
                    help='Runs each RNNLM only for one iteration, is faster, but the LM is less accurate.(default=1)')
+    parser.add_argument('-hidden', metavar='hidden', type=int, default=50,
+                   help='Number of nodes in the hidden layer of the RNNLMs (default=50)')
 
     args = parser.parse_args()  
     
@@ -47,6 +50,8 @@ if __name__ == '__main__':
     textFile = open(tmpFolder + 'text.tmp','w')
     textFileR = open(tmpFolder + 'text-r.tmp','w')    
     
+    
+    vocab = set([])
     with open(args.text) as f:
         lines = f.readlines()
         
@@ -54,6 +59,7 @@ if __name__ == '__main__':
         lineNr = 0
         for line in lines:
             words = line.rstrip().split()
+            vocab = vocab.union(set(words))
             if lineNr%5 == 0:
                 devFile.write(' '.join(words)+'\n')
                 devFileR.write(' '.join(reversed(words))+'\n')                
@@ -70,11 +76,12 @@ if __name__ == '__main__':
         devFileR.close() 
         textFileR.close()
 
-
+    classSize = int(math.sqrt(len(vocab)))
+    sys.stderr.write('Vocabulary:'+str(len(vocab))+'\n')
     sys.stderr.write('(2) Training & Running RNNLM -> ...\n')
     FNULL = open(os.devnull, 'w')
     # Training RNNLM
-    command = [args.rnnlm,'-hidden','20', '-train', tmpFolder + 'train.tmp', '-valid',tmpFolder + 'dev.tmp','-rnnlm',tmpFolder + 'model.tmp']
+    command = [args.rnnlm,'-hidden', str(args.hidden),'-class', str(classSize), '-train', tmpFolder + 'train.tmp', '-valid',tmpFolder + 'dev.tmp','-rnnlm',tmpFolder + 'model.tmp']
     if args.fast:
         command += ['-one-iter']
         sys.stderr.write('fast-training=1\n')
@@ -87,7 +94,7 @@ if __name__ == '__main__':
         
     sys.stderr.write("(2') Training & Running RNNLM <- ...\n")
     # Training RNNLM-R
-    command = [args.rnnlm, '-hidden','20', '-train', tmpFolder + 'train-r.tmp', '-valid',tmpFolder + 'dev-r.tmp','-rnnlm',tmpFolder + 'model-r.tmp']
+    command = [args.rnnlm, '-hidden', str(args.hidden),'-class', str(classSize), '-train', tmpFolder + 'train-r.tmp', '-valid',tmpFolder + 'dev-r.tmp','-rnnlm',tmpFolder + 'model-r.tmp']
     if args.fast:
         command +=['-one-iter']
         sys.stderr.write('fast-training=1\n')
@@ -162,4 +169,3 @@ if __name__ == '__main__':
 
     if args.clean:
         shutil.rmtree(tmpFolder)
-    exit()
