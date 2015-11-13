@@ -1,6 +1,6 @@
 # segmental
 
-RNNLM Segmenter
+RNNLM Segmenter (test)
 ---------------
 Given a fully separated space (character-) separated text, finds segments by concatenating units
 for which the probability is higher than a given threshold.
